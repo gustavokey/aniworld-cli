@@ -274,6 +274,10 @@ extern inline void http_disconnect(HttpConnect *con)
   {
     SSL_set_shutdown(con->ssl, SSL_RECEIVED_SHUTDOWN | SSL_SENT_SHUTDOWN);
     SSL_shutdown(con->ssl);
+    SSL_free(con->ssl);
+    SSL_CTX_free(con->ctx);
+    con->ssl = NULL;
+    con->ctx = NULL;
   }
 
   close(con->sockfd);
@@ -283,8 +287,6 @@ extern inline void http_disconnect(HttpConnect *con)
 
 extern inline void http_close(HttpConnect con)
 {
-  SSL_free(con.ssl);
-  SSL_CTX_free(con.ctx);
   free(con.req.items);
 }
 #endif // HTTP_IMPLEMENTATION
