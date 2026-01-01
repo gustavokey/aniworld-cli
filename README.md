@@ -1,7 +1,7 @@
 # aniworld-cli
 
 > [!IMPORTANT]
-> Very early project, highly buggy.
+> Very early project, full of bugs.
 
 Watch aniworld from CLI.
 
