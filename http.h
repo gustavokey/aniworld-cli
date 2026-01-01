@@ -270,6 +270,12 @@ extern inline void _http_recv(HttpConnect con, struct http_recv_options opts)
 
 extern inline void http_disconnect(HttpConnect *con)
 {
+  if (con->ssl && con->ctx)
+  {
+    SSL_set_shutdown(con->ssl, SSL_RECEIVED_SHUTDOWN | SSL_SENT_SHUTDOWN);
+    SSL_shutdown(con->ssl);
+  }
+
   close(con->sockfd);
   con->req.count = 0;
   memset(__http__message, 0, __MESSAGE_SIZE);
@@ -277,14 +283,8 @@ extern inline void http_disconnect(HttpConnect *con)
 
 extern inline void http_close(HttpConnect con)
 {
-  if (con.ssl && con.ctx)
-  {
-    SSL_set_shutdown(con.ssl, SSL_RECEIVED_SHUTDOWN | SSL_SENT_SHUTDOWN);
-    SSL_shutdown(con.ssl);
-    SSL_free(con.ssl);
-    SSL_CTX_free(con.ctx);
-  }
-
+  SSL_free(con.ssl);
+  SSL_CTX_free(con.ctx);
   free(con.req.items);
 }
 #endif // HTTP_IMPLEMENTATION

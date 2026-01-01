@@ -3,7 +3,7 @@
 #include "cmd.h"
 
 #define URL_SIZE 64
-#define HLS_SIZE URL_SIZE*5
+#define HLS_SIZE URL_SIZE*4
 
 int main(void)
 {
@@ -17,7 +17,7 @@ int main(void)
 
   http_connect(&con, "aniworld.to", .secure = true);
     http_request(&con,
-                 "GET /anime/stream/monster/staffel-1/episode-1 HTTP/1.0\r\n"
+                 "GET /anime/stream/monster/staffel-1/episode-32 HTTP/1.0\r\n"
                  "Host: aniworld.to\r\n"
                  "User-Agent: curl/8.17.0\r\n"
                  "Accept: */*\r\n"
@@ -26,15 +26,14 @@ int main(void)
     http_recv(con, .out = &res);
 
     redirect = strstr((char*)res.items, "data-link-target=");
-    assert(redirect && "[ERROR] Did not found redirect in html");
+    assert(redirect && "[ERROR] Did not found redirect in html (1)");
     redirect = strstr(redirect + 1, "data-link-target=");
-    assert(redirect && "[ERROR] Did not found redirect in html");
+    assert(redirect && "[ERROR] Did not found redirect in html (2)");
     redirect = strstr(redirect + 1, "data-link-target=");
-    assert(redirect && "[ERROR] Did not found redirect in html");
+    assert(redirect && "[ERROR] Did not found redirect in html (3)");
 
     redirect = redirect + strlen("data-link-target=") + 1;
     memcpy(aniworld + strlen(aniworld), redirect, strlen("/redirect/......."));
-
   http_disconnect(&con);
 
   http_response_reset(&res);
@@ -78,17 +77,13 @@ int main(void)
     assert(sources && "[ERROR] Failed to find file sources");
     sources += 6;
     memcpy(hls, sources, strchr(sources + 1, '"') - sources);
+    printf("[INFO] Found hls stream\n");
   http_disconnect(&con);
-
-  printf("[INFO] Found hls stream: %s\n", hls);
 
   http_close(con);
 
   printf("[INFO] Starting MPV\n");
-
-  cmd("/usr/bin/mpv", "mpv", hls);
-
-  return 0;
+  return cmd("/usr/bin/mpv", "mpv", hls);
 }
 
 #include "cmd.c"

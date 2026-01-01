@@ -44,7 +44,7 @@ extern inline int cmd_run(char *cmd[])
   int rc = 0;
   pid_t pid = 0;
 
-  printf(__FILE__"::betterC:%d "  STRING_COLOR(">>", GREEN)  " Exec ", __LINE__);
+  printf("[INFO] Run ");
   for (int i = 0; cmd[i] != NULL; ++i)
     printf("%s ", cmd[i]);
 
