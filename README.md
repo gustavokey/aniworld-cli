@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > Very early project, highly buggy.
 
-Watch aniworld from CLI. (Very unstable and early!)
+Watch aniworld from CLI.
 
 ## Build:
 ```
