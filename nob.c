@@ -5,7 +5,7 @@ int main(void)
 {
   int rc = 0;
 
-  rc = cbuild("-g", "main.c", "-o", "main", "-lssl", "-lcrypto");
+  rc = cbuild("-g", "aniworld_cli.c", "-o", "aniworld_cli", "-lssl", "-lcrypto");
 
   if (rc)
     return rc;
