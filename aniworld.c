@@ -125,34 +125,34 @@ int main(void)
   res = request(&con, "GET", "aniworld.to", "/anime/stream/monster/staffel-1/episode-1");
   assert(!strstr((char*)res.items, "Die gewÃ¼nschte Serie wurde nicht gefunden oder ist im Moment deaktiviert."));
   
-  redirect = string_goto((char*)res.items, "data-link-target=\"");
+  redirect = string_jump_over((char*)res.items, "data-link-target=\"");
   assert(redirect);
   aniworld = STRING_SLICE("https://aniworld.to%.*s", redirect, '"');
 
   res = request(&con, "GET", "aniworld.to", string_format("/redirect%s", strrchr(aniworld, '/')));
-  redirect = string_goto((char*)res.items, "Location: ");
+  redirect = string_jump_over((char*)res.items, "Location: ");
   assert(redirect);
   redirect = STRING_SLICE("%.*s", redirect, '\r');
-  redirect = string_goto(redirect, "https://voe.sx");
+  redirect = string_jump_over(redirect, "https://voe.sx");
 
   res = request(&con, "GET", "voe.sx", redirect);
   redirect = (char*)res.items;
 
-  redirect = string_goto((char*)res.items, "window.location.href = '");
+  redirect = string_jump_over((char*)res.items, "window.location.href = '");
   assert(redirect);
   voe = STRING_SLICE("%.*s", redirect, '\'');
 
-  redirect = string_goto(voe, "https://");
+  redirect = string_jump_over(voe, "https://");
   redirect = STRING_SLICE("%.*s", redirect, '/');
 
   res = request(&con, "GET", redirect, voe + strlen("https://") + strlen(redirect));
-  encoded = string_goto((char*)res.items, "type=\"application/json\">[\"");
+  encoded = string_jump_over((char*)res.items, "type=\"application/json\">[\"");
   encoded = (unsigned char*)STRING_SLICE("%.*s", encoded, '\"');
 
   decoded = deobfuscate(encoded);
 
   hls = decoded;
-  hls = string_goto(hls, "\"source\":\"");
+  hls = string_jump_over(hls, "\"source\":\"");
   hls = STRING_SLICE("%.*s", hls, '"');
   hls = __remove(hls, (const char*[2]){"\\", NULL});
   printf("%s\n", hls);

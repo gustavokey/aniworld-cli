@@ -32,7 +32,7 @@ static struct __InternalDAStrings ____internal_formated_strings_buffer = {0};
 
 extern inline char *vstring_format(const char *format, va_list args);
 extern inline char *string_format(const char *format, ...);
-extern inline char *string_goto(char *string, const char *go);
+extern inline char *string_jump_over(char *string, const char *go);
 extern inline char *string_scratch(size_t size);
 extern inline void string_reset(void);
 extern inline void string_pop(void);
@@ -70,7 +70,7 @@ extern inline char *string_format(const char *format, ...)
   return result;
 }
 
-extern inline char *string_goto(char *string, const char *go)
+extern inline char *string_jump_over(char *string, const char *go)
 {
   char *to = NULL;
 
