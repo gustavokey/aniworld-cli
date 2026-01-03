@@ -8,20 +8,7 @@
 #ifndef _HTTP_H_INCLUDE
 #define _HTTP_H_INCLUDE
 
-#include <stddef.h>
-#include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#define __MESSAGE_SIZE 1024
 
 #define da_reserve(da, expected_capacity)                                         \
     do {                                                                          \
@@ -43,8 +30,6 @@
       da_reserve((da), (da)->count + 1);  \
       (da)->items[(da)->count++] = (item);\
     } while (0)
-
-#define __MESSAGE_SIZE 1024
 
 typedef struct {
   const char **items;
@@ -70,9 +55,17 @@ struct http_connect_options {
   bool secure;
 };
 
+struct http_send_options {
+  bool verbose;
+};
+
 struct http_recv_options {
   HttpResponse *out;
   const char *file;
+};
+
+struct http_close_options {
+  HttpResponse *received;
 };
 
 #define http_connect(con, url, ...) _http_connect((con), (url), ((struct http_connect_options){__VA_ARGS__}))
@@ -81,11 +74,13 @@ extern inline void http_resolve(HttpConnect *con, const char *url);
 extern inline bool http_ssl(int sockfd, SSL **ssl, SSL_CTX **ctx, const char *url);
 extern inline void http_request(HttpConnect *con, const char *req);
 extern inline void http_response_reset(HttpResponse *res);
-extern inline void http_send(HttpConnect con);
+#define http_send(con, ...) _http_send((con), ((struct http_send_options){__VA_ARGS__}))
+extern inline void _http_send(HttpConnect con, struct http_send_options opts);
 #define http_recv(con, ...) _http_recv((con), ((struct http_recv_options){__VA_ARGS__}))
 extern inline void _http_recv(HttpConnect con, struct http_recv_options opts);
 extern inline void http_disconnect(HttpConnect *con);
-extern inline void http_close(HttpConnect con);
+#define http_close(con, ...) _http_close((con), ((struct http_close_options){__VA_ARGS__}))
+extern inline void _http_close(HttpConnect con, struct http_close_options opts);
 
 static unsigned char __http__message[__MESSAGE_SIZE] = {0};
 
@@ -104,11 +99,7 @@ extern inline void http_resolve(HttpConnect *con, const char *url)
 
   rc = getaddrinfo(url , "https", &hints, &servinfo);
 
-  if (rc) 
-  {
-    printf("[ERROR] Failed to get address information\n");
-    return;
-  }
+  assert(!rc && "Couldn't resolve ip address");
 
   for (p = servinfo; p != NULL; p = p->ai_next) 
   {
@@ -203,12 +194,13 @@ extern inline void http_response_reset(HttpResponse *res)
   res->count = 0;
 }
 
-extern inline void http_send(HttpConnect con)
+extern inline void _http_send(HttpConnect con, struct http_send_options opts)
 {
   int rc = 0;
 
   for (size_t i = 0; i < con.req.count; ++i)
   {
+    if(opts.verbose) printf("%s", con.req.items[i]);
     rc = con.ssl && con.ctx ?
          SSL_write(con.ssl, con.req.items[i], strlen(con.req.items[i])) :
          send(con.sockfd, con.req.items[i], strlen(con.req.items[i]), 0);
@@ -230,7 +222,7 @@ extern inline void _http_recv(HttpConnect con, struct http_recv_options opts)
   {
     fd = fopen(opts.file, "wb");
 
-    if (fd <= 0)
+    if (!fd)
     {
       printf("[ERROR] Invalid file '%s'\n", opts.file);
       return;
@@ -258,7 +250,7 @@ extern inline void _http_recv(HttpConnect con, struct http_recv_options opts)
       fwrite(__http__message, sizeof(unsigned char), bytes_recv, fd);
 
     if (opts.out)
-      for (size_t i = 0; i < bytes_recv; ++i)
+      for (int i = 0; i < bytes_recv; ++i)
         da_append(opts.out, __http__message[i]);
 
     memset(__http__message, 0, __MESSAGE_SIZE);
@@ -285,9 +277,11 @@ extern inline void http_disconnect(HttpConnect *con)
   memset(__http__message, 0, __MESSAGE_SIZE);
 }
 
-extern inline void http_close(HttpConnect con)
+extern inline void _http_close(HttpConnect con, struct http_close_options opts)
 {
+  if (opts.received) free(opts.received->items);
   free(con.req.items);
 }
 #endif // HTTP_IMPLEMENTATION
 #endif // _HTTP_H_INCLUDE
+
