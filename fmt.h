@@ -36,6 +36,11 @@ extern inline char *string_jump_over(char *string, const char *go);
 extern inline char *string_scratch(size_t size);
 extern inline void string_reset(void);
 extern inline void string_pop(void);
+extern inline void string_pop_pro(int count);
+extern inline char *string_reverse(unsigned char *data);
+extern inline char *string_shift(char *data, int shift);
+extern inline char *string_remove(char *data, const char *pattern[]);
+extern inline char *string_rot13(char *decoded, size_t size);
 extern inline void string_free(void);
 
 #ifdef FMT_IMPLEMENTATION
@@ -86,7 +91,7 @@ extern inline char *string_scratch(size_t size)
   char *string = NULL;
 
   string = (char*)malloc(size*sizeof(char));
-  memset(string, 0, size + 1);
+  memset(string, 0, size);
   da_append(&____internal_formated_strings_buffer, string);
 
   return string;
@@ -108,6 +113,85 @@ extern inline void string_pop(void)
     free(____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count]);
     ____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count] = NULL;
   }
+}
+
+extern inline void string_pop_pro(int count)
+{
+  while (count-- && ____internal_formated_strings_buffer.count)
+  {
+    ____internal_formated_strings_buffer.count -= 1;
+    free(____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count]);
+    ____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count] = NULL;
+  }
+}
+
+char *string_reverse(unsigned char *data)
+{
+  size_t size   = 0;
+  size_t length = 0;
+
+  size = strlen(data) - 1;
+  length = size;
+
+  for (size_t i = 0; i < length/2 + 1; ++i)
+  {
+    unsigned char c = data[i];
+    data[i] = data[size];
+    data[size] = c;
+    size--;
+  }
+
+  return data;
+}
+
+char *string_shift(char *data, int shift)
+{
+  for (size_t i = 0; data[i]; ++i)
+    data[i] = (unsigned char)(data[i] + shift);
+
+  return data;
+}
+
+char *string_remove(char *data, const char *pattern[])
+{
+  char *replaced = NULL;
+  char *found = NULL;
+  size_t size = 0;
+
+  size = strlen(data);
+  replaced = string_scratch(size + 1);
+
+  for (int i = 0; pattern[i]; ++i)
+  {
+    memcpy(replaced, data, size + 1);
+    size = strlen(data);
+
+    do {
+      found = strstr(replaced, pattern[i]);
+
+      if (found) memset(found, '\b', strlen(pattern[i]));
+    } while (found);
+
+    for (size_t i = 0, j = 0; replaced[i]; ++i)
+    {
+      if (replaced[i] != '\b') data[j++] = replaced[i];
+      if (!replaced[i + 1]) memset(data + j, 0, size - j);
+    }
+  }
+
+  string_pop();
+
+  return data;
+}
+
+// Source: https://hea-www.harvard.edu/~fine/Tech/rot13.html
+char *string_rot13(char *decoded, size_t size)
+{
+  for (size_t i = 0; i < size; ++i)
+    if ((decoded[i] >= 'A' && decoded[i] <= 'Z') || (decoded[i] >= 'a' && decoded[i] <= 'z'))
+      decoded[i] = ~(~decoded[i])-1/(~(~decoded[i]|32)/13*2-11)*13;
+
+  return decoded;
 }
 
 extern inline void string_free(void)

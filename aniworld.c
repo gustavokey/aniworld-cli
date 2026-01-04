@@ -5,74 +5,6 @@
 
 #define STRING_SLICE(format, string, split) string_format((format), strchr((string), (split)) - (string), (string))
 
-char *__reverse(unsigned char *data)
-{
-  size_t size   = 0;
-  size_t length = 0;
-
-  size = strlen(data) - 1;
-  length = size;
-
-  for (size_t i = 0; i < length/2 + 1; ++i)
-  {
-    unsigned char c = data[i];
-    data[i] = data[size];
-    data[size] = c;
-    size--;
-  }
-
-  return data;
-}
-
-char *__shift(char *data, int shift)
-{
-  for (size_t i = 0; data[i]; ++i)
-    data[i] = (unsigned char)(data[i] + shift);
-
-  return data;
-}
-
-char *__remove(char *data, const char *pattern[])
-{
-  char *replaced = NULL;
-  char *found = NULL;
-  size_t size = 0;
-
-  replaced = string_format("%s", data);
-  size = strlen(data);
-
-  for (int i = 0; pattern[i]; ++i)
-  {
-    do {
-        found = strstr(replaced, pattern[i]);
-
-        if (found)
-          for (int c = 0; c < strlen(pattern[i]); ++c)
-            *(found + c) = '\b';
-    } while (found);
-  }
-
-  for (size_t i = 0, j = 0; replaced[i]; ++i)
-  {
-    if (replaced[i] != '\b') data[j++] = replaced[i];
-    if (!replaced[i + 1]) memset(data + j, 0, size - j);
-  }
-
-  string_pop();
-
-  return data;
-}
-
-// Source: https://hea-www.harvard.edu/~fine/Tech/rot13.html
-char *__rot13(char *decoded, size_t size)
-{
-  for (size_t i = 0; i < size; ++i)
-    if ((decoded[i] >= 'A' && decoded[i] <= 'Z') || (decoded[i] >= 'a' && decoded[i] <= 'z'))
-      decoded[i] = ~(~decoded[i])-1/(~(~decoded[i]|32)/13*2-11)*13;
-
-  return decoded;
-}
-
 // Source: https://github.com/p4ul17/voe-dl
 char *deobfuscate(unsigned char *encoded)
 {
@@ -83,29 +15,39 @@ char *deobfuscate(unsigned char *encoded)
   char*   step4    = NULL;
   char*   step5    = NULL;
 
-  step1   = __rot13(encoded, strlen(encoded));
-  step2   = __remove(step1, (const char*[8]){"@$", "^^", "~@", "%?", "*~", "!!", "#&", NULL});
+  step1   = string_rot13(encoded, strlen(encoded));
+  step2   = string_remove(step1, (const char*[8]){"@$", "^^", "~@", "%?", "*~", "!!", "#&", NULL});
   step3   = base64_decode_st((Base64){ .data = step2, strlen(step2) });
-  step4   = __shift(step3.data, -3);
-  step5   = __reverse(step4);
+  step4   = string_shift(step3.data, -3);
+  step5   = string_reverse(step4);
   decoded = base64_decode_st((Base64){ .data = step5, strlen(step5) });
 
   return (char*)decoded.data;
 }
 
-HttpResponse request(HttpConnect *con, const char *type, const char *host, const char *filename)
+struct request_opts {
+  unsigned char *content;
+  unsigned char *content_type;
+};
+#define request(con, type, host, filename, ...) _request((con), (type), (host), (filename), (struct request_opts){__VA_ARGS__})
+HttpResponse _request(HttpConnect *con, const char *type, const char *host, const char *filename, struct request_opts opts)
 {
   HttpResponse res = {0};
 
   http_connect(con, host, .secure = true);
     http_request(con, string_format("%s %s HTTP/1.0\r\n", type, filename));
     http_request(con, string_format("Host: %s\r\n", host));
-    http_request(con, "User-Agent: curl/8.17.0\r\n"
-                      "Accept: */*\r\n"
-                      "\r\n");
+    http_request(con, "User-Agent: curl/8.17.0\r\n");
+    http_request(con, "Accept: */*\r\n");
+    if (opts.content) http_request(con, string_format("Content-Length: %ld\r\n", strlen(opts.content)));
+    if (opts.content_type) http_request(con, string_format("Content-Type: %s\r\n", opts.content_type));
+    http_request(con, "\r\n");
+    if (opts.content) http_request(con, opts.content);
     http_send(*con);
     http_recv(*con, .out = &res);
   http_disconnect(con);
+
+  string_pop_pro(4);
 
   return res;
 }
@@ -154,7 +96,7 @@ int main(void)
   hls = decoded;
   hls = string_jump_over(hls, "\"source\":\"");
   hls = STRING_SLICE("%.*s", hls, '"');
-  hls = __remove(hls, (const char*[2]){"\\", NULL});
+  hls = string_remove(hls, (const char*[2]){"\\", NULL});
   printf("%s\n", hls);
 
   printf("[INFO] Starting MPV\n");
