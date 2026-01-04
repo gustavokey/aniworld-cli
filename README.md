@@ -7,7 +7,7 @@ Watch aniworld from CLI.
 
 ## Build:
 ```
-gcc aniworld_cli.c -o aniworld_cli -lssl -lcrypto
+gcc aniworld-cli.c -o aniworld-cli -lssl -lcrypto
 ```
 or
 ```
@@ -17,5 +17,6 @@ gcc nob.c -o nob
 
 ## Usage:
 ```
-aniworld_cli [show] [staffel] [episode]
+aniworld-cli [watch]  [show] [staffel] [episode]
+aniworld-cli [search] [show]
 ```
