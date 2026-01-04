@@ -3,8 +3,6 @@
 #define URL_SIZE 64
 #define HLS_SIZE URL_SIZE*4
 
-#define string_slice(format, string, split) string_format((format), strchr((string), (split)) - (string), (string))
-
 // Source: https://github.com/p4ul17/voe-dl
 char *deobfuscate(unsigned char *encoded)
 {
@@ -16,11 +14,17 @@ char *deobfuscate(unsigned char *encoded)
   char*   step5    = NULL;
 
   step1   = string_rot13(encoded, strlen(encoded));
+  printf("Step1:   %s\n", step1);
   step2   = string_remove(step1, (const char*[8]){"@$", "^^", "~@", "%?", "*~", "!!", "#&", NULL});
+  printf("Step2:   %s\n", step2);
   step3   = base64_decode_st((Base64){ .data = step2, strlen(step2) });
+  printf("Step3:   %s\n", step3.data);
   step4   = string_shift(step3.data, -3);
+  printf("Step4:   %s\n", step4);
   step5   = string_reverse(step4);
+  printf("Step5:   %s\n", step5);
   decoded = base64_decode_st((Base64){ .data = step5, strlen(step5) });
+  printf("Decoded: %s\n", decoded.data);
 
   return (char*)decoded.data;
 }
@@ -69,12 +73,12 @@ int main(void)
   
   redirect = string_jump_over((char*)res.items, "data-link-target=\"");
   assert(redirect);
-  aniworld = string_slice("https://aniworld.to%.*s", redirect, '"');
+  aniworld = string_slice("https://aniworld.to%.*s", redirect, "\"");
 
   res = request(&con, "GET", "aniworld.to", string_format("/redirect%s", strrchr(aniworld, '/')));
   redirect = string_jump_over((char*)res.items, "Location: ");
   assert(redirect);
-  redirect = string_slice("%.*s", redirect, '\r');
+  redirect = string_slice("%.*s", redirect, "\"");
   redirect = string_jump_over(redirect, "https://voe.sx");
 
   res = request(&con, "GET", "voe.sx", redirect);
@@ -82,20 +86,20 @@ int main(void)
 
   redirect = string_jump_over((char*)res.items, "window.location.href = '");
   assert(redirect);
-  voe = string_slice("%.*s", redirect, '\'');
+  voe = string_slice("%.*s", redirect, "\"");
 
   redirect = string_jump_over(voe, "https://");
-  redirect = string_slice("%.*s", redirect, '/');
+  redirect = string_slice("%.*s", redirect, "\"");
 
   res = request(&con, "GET", redirect, voe + strlen("https://") + strlen(redirect));
   encoded = string_jump_over((char*)res.items, "type=\"application/json\">[\"");
-  encoded = (unsigned char*)string_slice("%.*s", encoded, '\"');
+  encoded = (unsigned char*)string_slice("%.*s", encoded, """");
 
   decoded = deobfuscate(encoded);
 
   hls = decoded;
   hls = string_jump_over(hls, "\"source\":\"");
-  hls = string_slice("%.*s", hls, '"');
+  hls = string_slice("%.*s", hls, "\"");
   hls = string_remove(hls, (const char*[2]){"\\", NULL});
   printf("%s\n", hls);
 

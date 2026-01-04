@@ -1,33 +1,5 @@
 #ifndef SSAK_H_INCLUDE
 #define SSAK_H_INCLUDE
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <assert.h>
-#include <unistd.h>
-#include <stdarg.h>
-
-#define da_reserve(da, expected_capacity)                                         \
-    do {                                                                          \
-      if ((expected_capacity) > (da)->capacity)                                   \
-      {                                                                           \
-        if ((da)->capacity == 0)                                                  \
-          (da)->capacity = 256;                                                   \
-                                                                                  \
-        while ((expected_capacity) > (da)->capacity)                              \
-          (da)->capacity *= 2;                                                    \
-                                                                                  \
-        (da)->items = realloc((da)->items, (da)->capacity * sizeof(*(da)->items));\
-        assert((da)->items != NULL && "You ran out of RAM!");                     \
-      }                                                                           \
-    } while (0)
-
-#define da_append(da, item)               \
-    do {                                  \
-      da_reserve((da), (da)->count + 1);  \
-      (da)->items[(da)->count++] = (item);\
-    } while (0)
 
 struct __InternalDAStrings {
   char **items;
@@ -37,21 +9,25 @@ struct __InternalDAStrings {
 
 static struct __InternalDAStrings ____internal_formated_strings_buffer = {0};
 
-extern inline char *string_vformat(const char *format, va_list args);
-extern inline char *string_format(const char *format, ...);
-extern inline char *string_file(const char *path);
-extern inline char *string_slice(const char *format, const char *string, const char *delimiter);
-extern inline char *string_jump_to(char *string, const char *go);
-extern inline char *string_jump_over(char *string, const char *go);
-extern inline char *string_scratch(size_t size);
-extern inline char *string_reverse(unsigned char *data);
-extern inline char *string_shift(char *data, int shift);
-extern inline char *string_remove(char *data, const char *pattern[]);
-extern inline char *string_rot13(char *decoded, size_t size);
-extern inline void string_reset(void);
-extern inline void string_pop(void);
-extern inline void string_pop_pro(int count);
-extern inline void string_free(void);
+extern inline char*  string_vformat(const char *format, va_list args);
+extern inline char*  string_format(const char *format, ...);
+extern inline char*  string_file(const char *path);
+struct string_slice_options { bool trim; };
+#define string_slice(format, string, delimiter, ...) _string_slice((format),(string),(delimiter),(struct string_slice_options){__VA_ARGS__})
+extern inline char*  _string_slice(const char *format, const char *string, const char *delimiter, struct string_slice_options opts);
+extern inline char*  string_jump_to(char *string, const char *go);
+extern inline char*  string_jump_over(char *string, const char *go);
+extern inline char*  string_scratch(size_t size);
+extern inline char* string_reverse(char *data);
+extern inline char*  string_shift(char *data, int shift);
+extern inline char*  string_remove(char *data, const char *pattern[]);
+extern inline char*  string_rot13(char *decoded, size_t size);
+extern inline void*  string_alloc(size_t bytes);
+extern inline size_t string_get_count(void);
+extern inline void   string_reset(void);
+extern inline void   string_pop(void);
+extern inline void   string_pop_pro(int count);
+extern inline void   string_free(void);
 
 #ifdef SSAK_IMPLEMENTATION
 extern inline char *string_vformat(const char *format, va_list args)
@@ -66,7 +42,7 @@ extern inline char *string_vformat(const char *format, va_list args)
 
   if (n < 0) return NULL;
 
-  result = (char*)malloc(sizeof(char)*(n + 1));
+  result = (char*)string_alloc(sizeof(char)*(n + 1));
   da_append(&____internal_formated_strings_buffer, result);
   vsnprintf(result, n + 1, format, args);
 
@@ -99,7 +75,7 @@ extern inline char *string_file(const char *path)
   size = ftell(f);
   rewind(f);
 
-  content = (char *)malloc(sizeof(char) * (size + 1));
+  content = (char *)string_alloc(sizeof(char) * (size + 1));
   fread(content, sizeof(char), size, f);
   da_append(&____internal_formated_strings_buffer, content);
 
@@ -108,7 +84,7 @@ extern inline char *string_file(const char *path)
   return content;
 }
 
-extern inline char *string_slice(const char *format, const char *string, const char *delimiter)
+extern inline char* _string_slice(const char *format, const char *string, const char *delimiter, struct string_slice_options opts)
 {
   char *slice = NULL;
   char *tail = NULL;
@@ -117,7 +93,9 @@ extern inline char *string_slice(const char *format, const char *string, const c
 
   if (!tail) return NULL;
 
-  slice = string_format(format, tail - string + strlen(delimiter), string);
+  slice = string_format(format, 
+                        opts.trim ? tail - string : tail - string + strlen(delimiter),
+                        string);
 
   return slice;
 }
@@ -140,7 +118,7 @@ extern inline char *string_jump_over(char *string, const char *go)
   return to + strlen(go);
 }
 
-extern inline char *string_reverse(unsigned char *data)
+extern inline char *string_reverse(char *data)
 {
   size_t size   = 0;
   size_t length = 0;
@@ -156,13 +134,13 @@ extern inline char *string_reverse(unsigned char *data)
     size--;
   }
 
-  return (char*)data;
+  return data;
 }
 
 extern inline char *string_shift(char *data, int shift)
 {
   for (size_t i = 0; data[i]; ++i)
-    data[i] = (unsigned char)(data[i] + shift);
+    data[i] = (data[i] + shift);
 
   return data;
 }
@@ -213,11 +191,25 @@ extern inline char *string_scratch(size_t size)
 {
   char *string = NULL;
 
-  string = (char*)malloc(size*sizeof(char));
-  memset(string, 0, size);
+  string = (char*)string_alloc((size + 1)*sizeof(char));
+  memset(string, 0, size + 1);
   da_append(&____internal_formated_strings_buffer, string);
 
   return string;
+}
+
+extern inline void *string_alloc(size_t bytes)
+{
+  void *region = NULL;
+
+  region = malloc(bytes);
+
+  return region;
+}
+
+extern inline size_t string_get_count(void)
+{
+  return ____internal_formated_strings_buffer.count;
 }
 
 extern inline void string_reset(void)

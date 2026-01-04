@@ -15,7 +15,7 @@ char *retrieve_entry(char *json, int n)
     --n;
   } while (entry && n);
 
-  if (entry) entry = string_slice("{\n  %.*s\n}", entry, "}");
+  if (entry) entry = string_slice("{\n  %.*s\n}", entry, "}", .trim = true);
 
   return entry;
 }
@@ -23,12 +23,12 @@ char *retrieve_entry(char *json, int n)
 // Source: https://github.com/p4ul17/voe-dl
 char *deobfuscate(unsigned char *encoded)
 {
-  Base64 decoded   = {0};
-  char*   step1    = NULL;
-  char*   step2    = NULL;
-  Base64  step3    = {0};
-  char*   step4    = NULL;
-  char*   step5    = NULL;
+  Base64 decoded = {0};
+  char*   step1  = NULL;
+  char*   step2  = NULL;
+  Base64  step3  = {0};
+  char*   step4  = NULL;
+  char*   step5  = NULL;
 
   step1   = string_rot13(encoded, strlen(encoded));
   step2   = string_remove(step1, (const char*[8]){"@$", "^^", "~@", "%?", "*~", "!!", "#&", NULL});
@@ -41,6 +41,7 @@ char *deobfuscate(unsigned char *encoded)
 }
 
 struct request_opts {
+  const char *file;
   unsigned char *content;
   unsigned char *content_type;
 };
@@ -48,6 +49,9 @@ struct request_opts {
 HttpResponse _request(HttpConnect *con, const char *type, const char *host, const char *filename, struct request_opts opts)
 {
   HttpResponse res = {0};
+  size_t allocated = 0;
+
+  allocated = string_get_count();
 
   http_connect(con, host, .secure = true);
     http_request(con, string_format("%s %s HTTP/1.0\r\n", type, filename));
@@ -59,10 +63,12 @@ HttpResponse _request(HttpConnect *con, const char *type, const char *host, cons
     http_request(con, "\r\n");
     if (opts.content) http_request(con, opts.content);
     http_send(*con);
-    http_recv(*con, .out = &res);
+    http_recv(*con, .out = &res, .file = opts.file);
   http_disconnect(con);
 
-  string_pop_pro(4);
+  allocated = string_get_count() - allocated;
+
+  string_pop_pro(allocated);
 
   return res;
 }
@@ -89,8 +95,6 @@ int main(int argc, char **argv)
   char* entry      = NULL;
   int rc           = 0;
 
-  // ./aniworld-cli watch  show staffel episode
-  // ./aniworld-cli search show
   if (argc < 3)
   {
     printf("[INFO] Not enough args\n");
@@ -110,17 +114,18 @@ int main(int argc, char **argv)
     staffel = argv[3];
     episode = argv[4];
 
-    res = request(&con, "GET", "aniworld.to", string_format("/anime/stream/%s/%s/%s", show, staffel, episode));
+    res = request(&con, "GET", "aniworld.to", string_format("/anime/stream/%s/staffel-%s/episode-%s", show, staffel, episode), .file = "index.html");
     assert(!strstr((char*)res.items, "Die gewÃ¼nschte Serie wurde nicht gefunden oder ist im Moment deaktiviert."));
     
     redirect = string_jump_over((char*)res.items, "data-link-target=\"");
     assert(redirect);
-    aniworld = string_slice("https://aniworld.to%.*s", redirect, "\"");
+    aniworld = string_slice("https://aniworld.to%.*s", redirect, "\"", .trim = true);
+    printf("%s\n", aniworld);
 
-    res = request(&con, "GET", "aniworld.to", string_format("/redirect%s", strrchr(aniworld, '/')));
+    res = request(&con, "GET", "aniworld.to", string_format("/redirect%s", strrchr(aniworld, '/')), .file = "index.1.html");
     redirect = string_jump_over((char*)res.items, "Location: ");
     assert(redirect);
-    redirect = string_slice("%.*s", redirect, "\r");
+    redirect = string_slice("%.*s", redirect, "\r", .trim = true);
     redirect = string_jump_over(redirect, "https://voe.sx");
 
     res = request(&con, "GET", "voe.sx", redirect);
@@ -128,24 +133,26 @@ int main(int argc, char **argv)
 
     redirect = string_jump_over((char*)res.items, "window.location.href = '");
     assert(redirect);
-    voe = string_slice("%.*s", redirect, "'");
+    voe = string_slice("%.*s", redirect, "'", .trim = true);
 
     redirect = string_jump_over(voe, "https://");
-    redirect = string_slice("%.*s", redirect, "/");
+    redirect = string_slice("%.*s", redirect, "/", .trim = true);
 
     res = request(&con, "GET", redirect, voe + strlen("https://") + strlen(redirect));
     encoded = string_jump_over((char*)res.items, "type=\"application/json\">[\"");
-    encoded = (unsigned char*)string_slice("%.*s", encoded, "\"");
+    encoded = (unsigned char*)string_slice("%.*s", encoded, "\"", .trim = true);
 
+    printf("[INFO] Deobfuscating JSON containing hls stream\n");
     decoded = deobfuscate(encoded);
+    printf("[INFO] Done\n");
+
 
     hls = decoded;
     hls = string_jump_over(hls, "\"source\":\"");
-    hls = string_slice("%.*s", hls, "\"");
+    hls = string_slice("%.*s", hls, "\"", .trim = true);
     hls = string_remove(hls, (const char*[2]){"\\", NULL});
-    printf("%s\n", hls);
 
-    printf("[INFO] Starting MPV\n");
+    printf("[INFO] Starting MPV now\n");
 
     rc = cmd("/usr/bin/mpv", "mpv", hls);
     if (rc) return rc;

@@ -15,6 +15,27 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+#define da_reserve(da, expected_capacity)                                         \
+    do {                                                                          \
+      if ((expected_capacity) > (da)->capacity)                                   \
+      {                                                                           \
+        if ((da)->capacity == 0)                                                  \
+          (da)->capacity = 256;                                                   \
+                                                                                  \
+        while ((expected_capacity) > (da)->capacity)                              \
+          (da)->capacity *= 2;                                                    \
+                                                                                  \
+        (da)->items = realloc((da)->items, (da)->capacity * sizeof(*(da)->items));\
+        assert((da)->items != NULL && "You ran out of RAM!");                     \
+      }                                                                           \
+    } while (0)
+
+#define da_append(da, item)               \
+    do {                                  \
+      da_reserve((da), (da)->count + 1);  \
+      (da)->items[(da)->count++] = (item);\
+    } while (0)
+
 #define HTTP_IMPLEMENTATION
 #define SSAK_IMPLEMENTATION
 
