@@ -1,5 +1,12 @@
-#ifndef FMT_H_INCLUDE
-#define FMT_H_INCLUDE
+#ifndef SSAK_H_INCLUDE
+#define SSAK_H_INCLUDE
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <assert.h>
+#include <unistd.h>
+#include <stdarg.h>
 
 #define da_reserve(da, expected_capacity)                                         \
     do {                                                                          \
@@ -30,9 +37,11 @@ struct __InternalDAStrings {
 
 static struct __InternalDAStrings ____internal_formated_strings_buffer = {0};
 
-extern inline char *vstring_format(const char *format, va_list args);
+extern inline char *string_vformat(const char *format, va_list args);
 extern inline char *string_format(const char *format, ...);
-extern inline char *string_slice(const char *format, const char *string, char delimiter);
+extern inline char *string_file(const char *path);
+extern inline char *string_slice(const char *format, const char *string, const char *delimiter);
+extern inline char *string_jump_to(char *string, const char *go);
 extern inline char *string_jump_over(char *string, const char *go);
 extern inline char *string_scratch(size_t size);
 extern inline char *string_reverse(unsigned char *data);
@@ -44,8 +53,8 @@ extern inline void string_pop(void);
 extern inline void string_pop_pro(int count);
 extern inline void string_free(void);
 
-#ifdef FMT_IMPLEMENTATION
-extern inline char *vstring_format(const char *format, va_list args)
+#ifdef SSAK_IMPLEMENTATION
+extern inline char *string_vformat(const char *format, va_list args)
 {
   va_list args_copy = {0};
   char *result = NULL;
@@ -70,19 +79,54 @@ extern inline char *string_format(const char *format, ...)
   char *result = NULL;
 
   va_start(args, format);
-  result = vstring_format(format, args);
+  result = string_vformat(format, args);
   va_end(args);
 
   return result;
 }
 
-extern inline char *string_slice(const char *format, const char *string, char delimiter)
+extern inline char *string_file(const char *path)
+{
+  FILE *f;
+  char *content = NULL;
+  long long int size = 0;
+
+  f = fopen(path, "r");
+
+  if (!f) return NULL;
+
+  fseek(f, 0L, SEEK_END);
+  size = ftell(f);
+  rewind(f);
+
+  content = (char *)malloc(sizeof(char) * (size + 1));
+  fread(content, sizeof(char), size, f);
+  da_append(&____internal_formated_strings_buffer, content);
+
+  fclose(f);
+
+  return content;
+}
+
+extern inline char *string_slice(const char *format, const char *string, const char *delimiter)
 {
   char *slice = NULL;
+  char *tail = NULL;
 
-  slice = string_format(format, strchr(string, delimiter) - string, string);
+  tail = strstr(string, delimiter);
+
+  if (!tail) return NULL;
+
+  slice = string_format(format, tail - string + strlen(delimiter), string);
 
   return slice;
+}
+
+extern inline char *string_jump_to(char *string, const char *go)
+{
+  char *to = NULL;
+
+  return strstr(string, go);
 }
 
 extern inline char *string_jump_over(char *string, const char *go)
@@ -96,8 +140,7 @@ extern inline char *string_jump_over(char *string, const char *go)
   return to + strlen(go);
 }
 
-
-char *string_reverse(unsigned char *data)
+extern inline char *string_reverse(unsigned char *data)
 {
   size_t size   = 0;
   size_t length = 0;
@@ -116,7 +159,7 @@ char *string_reverse(unsigned char *data)
   return (char*)data;
 }
 
-char *string_shift(char *data, int shift)
+extern inline char *string_shift(char *data, int shift)
 {
   for (size_t i = 0; data[i]; ++i)
     data[i] = (unsigned char)(data[i] + shift);
@@ -124,7 +167,7 @@ char *string_shift(char *data, int shift)
   return data;
 }
 
-char *string_remove(char *data, const char *pattern[])
+extern inline char *string_remove(char *data, const char *pattern[])
 {
   char *replaced = NULL;
   char *found = NULL;
@@ -157,7 +200,7 @@ char *string_remove(char *data, const char *pattern[])
 }
 
 // Source: https://hea-www.harvard.edu/~fine/Tech/rot13.html
-char *string_rot13(char *decoded, size_t size)
+extern inline char *string_rot13(char *decoded, size_t size)
 {
   for (size_t i = 0; i < size; ++i)
     if ((decoded[i] >= 'A' && decoded[i] <= 'Z') || (decoded[i] >= 'a' && decoded[i] <= 'z'))
@@ -215,6 +258,6 @@ extern inline void string_free(void)
   ____internal_formated_strings_buffer.capacity = 0;
 }
 
-#endif // FMT_IMPLEMENTATION
-#endif // FMT_H_INCLUDE
+#endif // SSAK_IMPLEMENTATION
+#endif // SSAK_H_INCLUDE
 

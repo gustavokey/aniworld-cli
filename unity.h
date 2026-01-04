@@ -16,11 +16,11 @@
 #include <openssl/err.h>
 
 #define HTTP_IMPLEMENTATION
-#define FMT_IMPLEMENTATION
+#define SSAK_IMPLEMENTATION
 
 #include "base64.h"
 #include "http.h"
-#include "fmt.h"
+#include "ssak.h"
 
 #include "base64.c"
 #include "cmd.c"
