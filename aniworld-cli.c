@@ -3,8 +3,6 @@
 #define URL_SIZE 64
 #define HLS_SIZE URL_SIZE*4
 
-#define STRING_SLICE(format, string, split) string_format((format), strchr((string), (split)) - (string), (string))
-
 char *retrieve_entry(char *json, int n)
 {
   char *entry = NULL;
@@ -17,7 +15,7 @@ char *retrieve_entry(char *json, int n)
     --n;
   } while (entry && n);
 
-  if (entry) entry = STRING_SLICE("{\n  %.*s\n}", entry, '}');
+  if (entry) entry = string_slice("{\n  %.*s\n}", entry, '}');
 
   return entry;
 }
@@ -117,12 +115,12 @@ int main(int argc, char **argv)
     
     redirect = string_jump_over((char*)res.items, "data-link-target=\"");
     assert(redirect);
-    aniworld = STRING_SLICE("https://aniworld.to%.*s", redirect, '"');
+    aniworld = string_slice("https://aniworld.to%.*s", redirect, '"');
 
     res = request(&con, "GET", "aniworld.to", string_format("/redirect%s", strrchr(aniworld, '/')));
     redirect = string_jump_over((char*)res.items, "Location: ");
     assert(redirect);
-    redirect = STRING_SLICE("%.*s", redirect, '\r');
+    redirect = string_slice("%.*s", redirect, '\r');
     redirect = string_jump_over(redirect, "https://voe.sx");
 
     res = request(&con, "GET", "voe.sx", redirect);
@@ -130,20 +128,20 @@ int main(int argc, char **argv)
 
     redirect = string_jump_over((char*)res.items, "window.location.href = '");
     assert(redirect);
-    voe = STRING_SLICE("%.*s", redirect, '\'');
+    voe = string_slice("%.*s", redirect, '\'');
 
     redirect = string_jump_over(voe, "https://");
-    redirect = STRING_SLICE("%.*s", redirect, '/');
+    redirect = string_slice("%.*s", redirect, '/');
 
     res = request(&con, "GET", redirect, voe + strlen("https://") + strlen(redirect));
     encoded = string_jump_over((char*)res.items, "type=\"application/json\">[\"");
-    encoded = (unsigned char*)STRING_SLICE("%.*s", encoded, '\"');
+    encoded = (unsigned char*)string_slice("%.*s", encoded, '\"');
 
     decoded = deobfuscate(encoded);
 
     hls = decoded;
     hls = string_jump_over(hls, "\"source\":\"");
-    hls = STRING_SLICE("%.*s", hls, '"');
+    hls = string_slice("%.*s", hls, '"');
     hls = string_remove(hls, (const char*[2]){"\\", NULL});
     printf("%s\n", hls);
 

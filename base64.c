@@ -8,7 +8,7 @@ extern inline unsigned char *base64_encode(const unsigned char *decoded, size_t 
 
   *count = 4 * ((size + 2) / 3);
 
-  encoded = string_scratch(*count);
+  encoded = (unsigned char*)string_scratch(*count);
 
   for (size_t i = 0, j = 0; i < size;)
   {
@@ -47,7 +47,7 @@ extern inline unsigned char *base64_decode(unsigned char *encoded, size_t size, 
   if (encoded[size - 1] == '=') (*count)--;
   if (encoded[size - 2] == '=') (*count)--;
 
-  decoded = string_scratch(*count);
+  decoded = (unsigned char*)string_scratch(*count);
 
   for (int i = 0; i < 64; i++)
     __decoding_table[(unsigned char) __encoding_table[i]] = i;

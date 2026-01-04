@@ -115,7 +115,7 @@ typedef uintptr_t uptr;
 #  define CC_PATH "/usr/bin/"CC
 #endif // _WIN32
 #ifndef CFLAGS
-#  define CFLAGS "-Wall", "-Werror"
+#  define CFLAGS "-std=c99", "-D_POSIX_C_SOURCE=200112L", "-Werror"
 #endif // CFLAGS
 
 #ifndef BETTER_C_MAX_FMT_BUFFERS

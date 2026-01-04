@@ -32,15 +32,16 @@ static struct __InternalDAStrings ____internal_formated_strings_buffer = {0};
 
 extern inline char *vstring_format(const char *format, va_list args);
 extern inline char *string_format(const char *format, ...);
+extern inline char *string_slice(const char *format, const char *string, char delimiter);
 extern inline char *string_jump_over(char *string, const char *go);
 extern inline char *string_scratch(size_t size);
-extern inline void string_reset(void);
-extern inline void string_pop(void);
-extern inline void string_pop_pro(int count);
 extern inline char *string_reverse(unsigned char *data);
 extern inline char *string_shift(char *data, int shift);
 extern inline char *string_remove(char *data, const char *pattern[]);
 extern inline char *string_rot13(char *decoded, size_t size);
+extern inline void string_reset(void);
+extern inline void string_pop(void);
+extern inline void string_pop_pro(int count);
 extern inline void string_free(void);
 
 #ifdef FMT_IMPLEMENTATION
@@ -75,6 +76,15 @@ extern inline char *string_format(const char *format, ...)
   return result;
 }
 
+extern inline char *string_slice(const char *format, const char *string, char delimiter)
+{
+  char *slice = NULL;
+
+  slice = string_format(format, strchr(string, delimiter) - string, string);
+
+  return slice;
+}
+
 extern inline char *string_jump_over(char *string, const char *go)
 {
   char *to = NULL;
@@ -86,51 +96,13 @@ extern inline char *string_jump_over(char *string, const char *go)
   return to + strlen(go);
 }
 
-extern inline char *string_scratch(size_t size)
-{
-  char *string = NULL;
-
-  string = (char*)malloc(size*sizeof(char));
-  memset(string, 0, size);
-  da_append(&____internal_formated_strings_buffer, string);
-
-  return string;
-}
-
-extern inline void string_reset(void)
-{
-  for (size_t i = 0; i < ____internal_formated_strings_buffer.count; ++i)
-    free(____internal_formated_strings_buffer.items[i]);
-
-  ____internal_formated_strings_buffer.count = 0;
-}
-
-extern inline void string_pop(void)
-{
-  if (____internal_formated_strings_buffer.count)
-  {
-    ____internal_formated_strings_buffer.count -= 1;
-    free(____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count]);
-    ____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count] = NULL;
-  }
-}
-
-extern inline void string_pop_pro(int count)
-{
-  while (count-- && ____internal_formated_strings_buffer.count)
-  {
-    ____internal_formated_strings_buffer.count -= 1;
-    free(____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count]);
-    ____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count] = NULL;
-  }
-}
 
 char *string_reverse(unsigned char *data)
 {
   size_t size   = 0;
   size_t length = 0;
 
-  size = strlen(data) - 1;
+  size = strlen((const char*)data) - 1;
   length = size;
 
   for (size_t i = 0; i < length/2 + 1; ++i)
@@ -141,7 +113,7 @@ char *string_reverse(unsigned char *data)
     size--;
   }
 
-  return data;
+  return (char*)data;
 }
 
 char *string_shift(char *data, int shift)
@@ -192,6 +164,45 @@ char *string_rot13(char *decoded, size_t size)
       decoded[i] = ~(~decoded[i])-1/(~(~decoded[i]|32)/13*2-11)*13;
 
   return decoded;
+}
+
+extern inline char *string_scratch(size_t size)
+{
+  char *string = NULL;
+
+  string = (char*)malloc(size*sizeof(char));
+  memset(string, 0, size);
+  da_append(&____internal_formated_strings_buffer, string);
+
+  return string;
+}
+
+extern inline void string_reset(void)
+{
+  for (size_t i = 0; i < ____internal_formated_strings_buffer.count; ++i)
+    free(____internal_formated_strings_buffer.items[i]);
+
+  ____internal_formated_strings_buffer.count = 0;
+}
+
+extern inline void string_pop(void)
+{
+  if (____internal_formated_strings_buffer.count)
+  {
+    ____internal_formated_strings_buffer.count -= 1;
+    free(____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count]);
+    ____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count] = NULL;
+  }
+}
+
+extern inline void string_pop_pro(int count)
+{
+  while (count-- && ____internal_formated_strings_buffer.count)
+  {
+    ____internal_formated_strings_buffer.count -= 1;
+    free(____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count]);
+    ____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count] = NULL;
+  }
 }
 
 extern inline void string_free(void)
