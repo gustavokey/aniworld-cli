@@ -114,38 +114,43 @@ int main(int argc, char **argv)
     staffel = argv[3];
     episode = argv[4];
 
-    res = request(&con, "GET", "aniworld.to", string_format("/anime/stream/%s/staffel-%s/episode-%s", show, staffel, episode), .file = "index.html");
-    assert(!strstr((char*)res.items, "Die gewÃ¼nschte Serie wurde nicht gefunden oder ist im Moment deaktiviert."));
-    
-    redirect = string_jump_over((char*)res.items, "data-link-target=\"");
-    assert(redirect);
-    aniworld = string_slice("https://aniworld.to%.*s", redirect, "\"", .trim = true);
-    printf("%s\n", aniworld);
+    // 1st: Voe       ... data-link-target=/redirect/xxxxxxx ...
+    // 2nd: Filemoon  ... data-link-target=/redirect/yyyyyyy ...
+    // 3rd: Vidmoly   ... data-link-target=/redirect/zzzzzzz ...
 
-    res = request(&con, "GET", "aniworld.to", string_format("/redirect%s", strrchr(aniworld, '/')), .file = "index.1.html");
+    res = request(&con, "GET", "aniworld.to", string_format("/anime/stream/%s/staffel-%s/episode-%s", show, staffel, episode));
+    assert(!strstr((char*)res.items, "Die gewÃ¼nschte Serie wurde nicht gefunden oder ist im Moment deaktiviert."));
+    // @Note data-link-target="/redirect/......."
+    // @Note Request redirection to provider
+    printf("[INFO] Using provider: voe.sx\n");
+
+    redirect = string_jump_over((char*)res.items, "data-link-target=\"");
+    assert(redirect && "Couldn't find redirect link");
+    aniworld = string_slice("https://aniworld.to%.*s", redirect, "\"", .trim = true);
+
+    // Receive redirect URL
+    res = request(&con, "GET", "aniworld.to", string_format("/redirect%s", strrchr(aniworld, '/')));
     redirect = string_jump_over((char*)res.items, "Location: ");
-    assert(redirect);
+    assert(redirect && "Unexpected header, missing location entry");
     redirect = string_slice("%.*s", redirect, "\r", .trim = true);
     redirect = string_jump_over(redirect, "https://voe.sx");
 
+    // "window.location.href = 'https://crystaltreatmenteast.com/e/jfyxfr84fvot'"
     res = request(&con, "GET", "voe.sx", redirect);
-    redirect = (char*)res.items;
-
     redirect = string_jump_over((char*)res.items, "window.location.href = '");
-    assert(redirect);
+    assert(redirect && "'window.location.href' was not found");
     voe = string_slice("%.*s", redirect, "'", .trim = true);
-
     redirect = string_jump_over(voe, "https://");
     redirect = string_slice("%.*s", redirect, "/", .trim = true);
 
+    // Final step, we need to decrypt the enigma machine.
     res = request(&con, "GET", redirect, voe + strlen("https://") + strlen(redirect));
     encoded = string_jump_over((char*)res.items, "type=\"application/json\">[\"");
     encoded = (unsigned char*)string_slice("%.*s", encoded, "\"", .trim = true);
 
     printf("[INFO] Deobfuscating JSON containing hls stream\n");
     decoded = deobfuscate(encoded);
-    printf("[INFO] Done\n");
-
+    printf("[INFO] Done, enjoy!\n");
 
     hls = decoded;
     hls = string_jump_over(hls, "\"source\":\"");
