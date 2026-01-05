@@ -18,11 +18,11 @@ gcc nob.c -o nob
 ## Usage:
 ```
 Start new watch:
-  aniworld-cli "One Punch Man"
+  aniworld-cli "Serial Experiments Lain"
 
 
-Choose specific staffel & episode
-  aniworld-cli "Watamote" 1 5
+Choose specific staffel and episode
+  aniworld-cli "One Punch Man" 1 5
 
 
 Watch the movie

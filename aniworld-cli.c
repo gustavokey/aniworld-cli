@@ -2,7 +2,7 @@
 
 #define URL_SIZE 64
 #define HLS_SIZE URL_SIZE*4
-#define MAX_SEARCH_RESULTS 8
+#define MAX_SEARCH_RESULTS 16
 
 void help(void)
 {
@@ -268,7 +268,7 @@ char *aniworld_search(const char *show)
                   .content      = string_format("keyword=%s", show),
                   .content_type = "application/x-www-form-urlencoded");
 
-  json = string_remove(res.items, (const char *[8]){"\\", "<em>", "</em>", "u00bb", "u00ba", "u00ab", "u2019", NULL});
+  json = string_remove(res.items, (const char *[9]){"\\", "<em>", "</em>", "u00bb", "u00ba", "u00ab", "u2019", "&#039;", NULL});
 
   return json;
 }
