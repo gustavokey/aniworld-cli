@@ -8,6 +8,8 @@ struct __InternalDAStrings {
 };
 
 static struct __InternalDAStrings ____internal_formated_strings_buffer = {0};
+static size_t ____internal_memory_alloc_count = 0;
+static size_t ____internal_memory_freed_count = 0;
 
 extern inline char*  string_vformat(const char *format, va_list args);
 extern inline char*  string_format(const char *format, ...);
@@ -18,16 +20,19 @@ extern inline char*  _string_slice(const char *format, const char *string, const
 extern inline char*  string_jump_to(char *string, const char *go);
 extern inline char*  string_jump_over(char *string, const char *go);
 extern inline char*  string_scratch(size_t size);
-extern inline char* string_reverse(char *data);
+extern inline char*  string_reverse(char *data);
 extern inline char*  string_shift(char *data, int shift);
 extern inline char*  string_remove(char *data, const char *pattern[]);
 extern inline char*  string_rot13(char *decoded, size_t size);
 extern inline void*  string_alloc(size_t bytes);
 extern inline size_t string_get_count(void);
+extern inline size_t string_get_capacity(void);
 extern inline void   string_reset(void);
 extern inline void   string_pop(void);
 extern inline void   string_pop_pro(int count);
-extern inline void   string_free(void);
+extern inline void   string_release(void);
+extern inline void   string_free(void *ptr);
+extern inline size_t string_memory_leaks(void);
 
 #ifdef SSAK_IMPLEMENTATION
 extern inline char *string_vformat(const char *format, va_list args)
@@ -204,6 +209,8 @@ extern inline void *string_alloc(size_t bytes)
 
   region = malloc(bytes);
 
+  ____internal_memory_alloc_count++;
+
   return region;
 }
 
@@ -212,10 +219,15 @@ extern inline size_t string_get_count(void)
   return ____internal_formated_strings_buffer.count;
 }
 
+extern inline size_t string_get_capacity(void)
+{
+  return ____internal_formated_strings_buffer.capacity;
+}
+
 extern inline void string_reset(void)
 {
   for (size_t i = 0; i < ____internal_formated_strings_buffer.count; ++i)
-    free(____internal_formated_strings_buffer.items[i]);
+    string_free(____internal_formated_strings_buffer.items[i]);
 
   ____internal_formated_strings_buffer.count = 0;
 }
@@ -225,7 +237,7 @@ extern inline void string_pop(void)
   if (____internal_formated_strings_buffer.count)
   {
     ____internal_formated_strings_buffer.count -= 1;
-    free(____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count]);
+    string_free(____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count]);
     ____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count] = NULL;
   }
 }
@@ -235,21 +247,30 @@ extern inline void string_pop_pro(int count)
   while (count-- && ____internal_formated_strings_buffer.count)
   {
     ____internal_formated_strings_buffer.count -= 1;
-    free(____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count]);
+    string_free(____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count]);
     ____internal_formated_strings_buffer.items[____internal_formated_strings_buffer.count] = NULL;
   }
 }
 
-extern inline void string_free(void)
+extern inline void string_release(void)
 {
   for (size_t i = 0; i < ____internal_formated_strings_buffer.count; ++i)
-    free(____internal_formated_strings_buffer.items[i]);
+    string_free(____internal_formated_strings_buffer.items[i]);
 
   ____internal_formated_strings_buffer.items    = NULL;
   ____internal_formated_strings_buffer.count    = 0;
   ____internal_formated_strings_buffer.capacity = 0;
 }
 
+extern inline void string_free(void *ptr)
+{
+  free(ptr);
+  ____internal_memory_freed_count++;
+}
+
+extern inline size_t string_memory_leaks(void)
+{
+  return ____internal_memory_alloc_count - ____internal_memory_alloc_count;
+}
 #endif // SSAK_IMPLEMENTATION
 #endif // SSAK_H_INCLUDE
-

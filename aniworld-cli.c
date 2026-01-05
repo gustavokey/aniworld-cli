@@ -2,42 +2,27 @@
 
 #define URL_SIZE 64
 #define HLS_SIZE URL_SIZE*4
+#define MAX_SEARCH_RESULTS 8
 
-char *retrieve_entry(char *json, int n)
+void help(void)
 {
-  char *entry = NULL;
-
-  entry = json;
-
-  do {
-    entry = strchr(entry, '{');
-    if (entry) ++entry;
-    --n;
-  } while (entry && n);
-
-  if (entry) entry = string_slice("{\n  %.*s\n}", entry, "}", .trim = true);
-
-  return entry;
-}
-
-// Source: https://github.com/p4ul17/voe-dl
-char *deobfuscate(unsigned char *encoded)
-{
-  Base64 decoded = {0};
-  char*   step1  = NULL;
-  char*   step2  = NULL;
-  Base64  step3  = {0};
-  char*   step4  = NULL;
-  char*   step5  = NULL;
-
-  step1   = string_rot13(encoded, strlen(encoded));
-  step2   = string_remove(step1, (const char*[8]){"@$", "^^", "~@", "%?", "*~", "!!", "#&", NULL});
-  step3   = base64_decode_st((Base64){ .data = step2, strlen(step2) });
-  step4   = string_shift(step3.data, -3);
-  step5   = string_reverse(step4);
-  decoded = base64_decode_st((Base64){ .data = step5, strlen(step5) });
-
-  return (char*)decoded.data;
+  printf("Usage Examples\n");
+  printf("\n");
+  printf("Start new watch:\n");
+  printf("  aniworld-cli \"One Punch Man\"");
+  printf("\n");
+  printf("\n");
+  printf("Choose specific staffel & episode\n");
+  printf("  aniworld-cli \"Watamote\" 1 5");
+  printf("\n");
+  printf("\n");
+  printf("Watch the movie\n");
+  printf("  aniworld-cli \"Watamote\" 0");
+  printf("\n");
+  printf("\n");
+  printf("aniworld-cli watch      show [staffel] [episode]\n");
+  printf("aniworld-cli watch-url  show [staffel] [episode]\n");
+  printf("aniworld-cli search     show\n");
 }
 
 struct request_opts {
@@ -46,42 +31,15 @@ struct request_opts {
   unsigned char *content_type;
 };
 #define request(con, type, host, filename, ...) _request((con), (type), (host), (filename), (struct request_opts){__VA_ARGS__})
-HttpResponse _request(HttpConnect *con, const char *type, const char *host, const char *filename, struct request_opts opts)
-{
-  HttpResponse res = {0};
-  size_t allocated = 0;
-
-  allocated = string_get_count();
-
-  http_connect(con, host, .secure = true);
-    http_request(con, string_format("%s %s HTTP/1.0\r\n", type, filename));
-    http_request(con, string_format("Host: %s\r\n", host));
-    http_request(con, "User-Agent: curl/8.17.0\r\n");
-    http_request(con, "Accept: */*\r\n");
-    if (opts.content) http_request(con, string_format("Content-Length: %ld\r\n", strlen(opts.content)));
-    if (opts.content_type) http_request(con, string_format("Content-Type: %s\r\n", opts.content_type));
-    http_request(con, "\r\n");
-    if (opts.content) http_request(con, opts.content);
-    http_send(*con);
-    http_recv(*con, .out = &res, .file = opts.file);
-  http_disconnect(con);
-
-  allocated = string_get_count() - allocated;
-
-  string_pop_pro(allocated);
-
-  return res;
-}
-
-void help(void)
-{
-  printf("[INFO] aniworld-cli watch  show staffel episode\n");
-  printf("[INFO] aniworld-cli search show\n");
-}
+HttpResponse _request(HttpConnect *con, const char *type, const char *host, const char *filename, struct request_opts opts);
+char *deobfuscate(unsigned char *encoded);
+char *json_entry(char *json, int n);
+void json_get_values(char **buff, char *json, const char *key);
+char *aniworld_search(const char *show);
 
 int main(int argc, char **argv)
 {
-  HttpConnect con  = {0};
+  HttpConnect  con = {0};
   HttpResponse res = {0};
   char* show       = NULL;
   char* staffel    = NULL;
@@ -93,32 +51,70 @@ int main(int argc, char **argv)
   char* decoded    = NULL;
   char* hls        = NULL;
   char* entry      = NULL;
+  char* json       = NULL;
+  int option       = 0;
   int rc           = 0;
+  bool watch       = false;
+  bool watch_url   = false;
+  bool is_movie    = false;
+  char* titles[MAX_SEARCH_RESULTS] = {0};
+  char* links[MAX_SEARCH_RESULTS]  = {0};
 
   if (argc < 3)
   {
-    printf("[INFO] Not enough args\n");
     help();
     return 1;
   }
 
-  if (strcmp(argv[1], "watch") == 0)
+  watch     = (strcmp(argv[1], "watch") == 0);
+  watch_url = (strcmp(argv[1], "watch-url") == 0);
+
+  if (watch || watch_url)
   {
-    if (argc < 5)
+    if (argc < 3)
     {
       help();
       return 0;
     }
 
-    show    = argv[2];
-    staffel = argv[3];
-    episode = argv[4];
+    if (!watch_url)
+    {
+      json = aniworld_search(argv[2]);
+      assert(json && "Nicht gefunden");
+
+      json_get_values(titles, json, "\"title\":\"");
+      json_get_values(links,  json, "\"link\":\"");
+
+      printf("Select your choice\n");
+      for (int i = 0; titles[i] && i < MAX_SEARCH_RESULTS; ++i)
+        printf("> [%d] %s\n", i + 1, titles[i]);
+
+      option = getchar();
+      option -= 48;
+
+      if (option > 7 && option < 1)
+        goto _defer;
+
+      if (strstr(links[option - 1], "staffel-0")) is_movie = true;
+
+      show    = links[option - 1];
+      staffel = is_movie ? "" : string_format("/staffel-%s", argc > 3 ? argv[3] : "1");
+      episode = is_movie ? "" : string_format("/episode-%s", argc > 4 ? argv[4] : "1");
+    }
+    else
+    {
+      show    = string_format("/anime/stream/%s", argv[2]);
+      staffel = string_format("/staffel-%s", argv[3]);
+      episode = string_format("/episode-%s", argv[4]);
+    }
+
+    printf("[INFO] URL: https://aniworld.to%s%s%s\n", show, staffel, episode);
 
     // 1st: Voe       ... data-link-target=/redirect/xxxxxxx ...
     // 2nd: Filemoon  ... data-link-target=/redirect/yyyyyyy ...
     // 3rd: Vidmoly   ... data-link-target=/redirect/zzzzzzz ...
 
-    res = request(&con, "GET", "aniworld.to", string_format("/anime/stream/%s/staffel-%s/episode-%s", show, staffel, episode));
+    res = request(&con, "GET", "aniworld.to", string_format("%s%s%s", show, staffel, episode));
     assert(!strstr((char*)res.items, "Die gewÃ¼nschte Serie wurde nicht gefunden oder ist im Moment deaktiviert."));
     // @Note data-link-target="/redirect/......."
     // @Note Request redirection to provider
@@ -161,25 +157,117 @@ int main(int argc, char **argv)
 
     rc = cmd("/usr/bin/mpv", "mpv", hls);
     if (rc) return rc;
-
-    http_close(con, .received = &res);
-    string_free();
   }
   else if (strcmp(argv[1], "search") == 0)
   {
-    res = request(&con,
-                  "POST", "aniworld.to", "/ajax/search",
-                    .content      = string_format("keyword=%s", argv[2]),
-                    .content_type = "application/x-www-form-urlencoded");
-    char *json = string_remove(res.items, (const char *[4]){"\\", "<em>", "</em>", NULL});
+    json = aniworld_search(argv[2]);
 
-    for (int i = 1; (entry = retrieve_entry(json, i)); ++i)
+    for (int i = 1; (entry = json_entry(json, i)); ++i)
       printf("%s\n", entry);
-
-    http_close(con, .received = &res);
-    string_free();
   }
 
+_defer:
+  http_close(con, .received = &res);
+  string_release();
 
   return 0;
+}
+
+HttpResponse _request(HttpConnect *con, const char *type, const char *host, const char *filename, struct request_opts opts)
+{
+  HttpResponse res = {0};
+  size_t allocated = 0;
+
+  allocated = string_get_count();
+
+  http_connect(con, host, .secure = true);
+    http_request(con, string_format("%s %s HTTP/1.0\r\n", type, filename));
+    http_request(con, string_format("Host: %s\r\n", host));
+    http_request(con, "User-Agent: curl/8.17.0\r\n");
+    http_request(con, "Accept: */*\r\n");
+    if (opts.content) http_request(con, string_format("Content-Length: %ld\r\n", strlen(opts.content)));
+    if (opts.content_type) http_request(con, string_format("Content-Type: %s\r\n", opts.content_type));
+    http_request(con, "\r\n");
+    if (opts.content) http_request(con, opts.content);
+    http_send(*con);
+    http_recv(*con, .out = &res, .file = opts.file);
+  http_disconnect(con);
+
+  allocated = string_get_count() - allocated;
+
+  string_pop_pro(allocated);
+
+  return res;
+}
+
+char *deobfuscate(unsigned char *encoded)
+{
+  Base64 decoded = {0};
+  char*   step1  = NULL;
+  char*   step2  = NULL;
+  Base64  step3  = {0};
+  char*   step4  = NULL;
+  char*   step5  = NULL;
+
+  // Source: https://github.com/p4ul17/voe-dl
+  step1   = string_rot13(encoded, strlen(encoded));
+  step2   = string_remove(step1, (const char*[8]){"@$", "^^", "~@", "%?", "*~", "!!", "#&", NULL});
+  step3   = base64_decode_st((Base64){ .data = step2, strlen(step2) });
+  step4   = string_shift(step3.data, -3);
+  step5   = string_reverse(step4);
+  decoded = base64_decode_st((Base64){ .data = step5, strlen(step5) });
+
+  return (char*)decoded.data;
+}
+
+char *json_entry(char *json, int n)
+{
+  char *entry = NULL;
+
+  entry = json;
+
+  do {
+    entry = strchr(entry, '{');
+    if (entry) ++entry;
+    --n;
+  } while (entry && n);
+
+  if (entry) entry = string_slice("%.*s", entry, "}", .trim = true);
+
+  return entry;
+}
+
+void json_get_values(char **buff, char *json, const char *key)
+{
+  char *entry = NULL;
+
+  for (int i = 0, j = 0; (entry = json_entry(json, i + 1)) && j < 8; ++i)
+  {
+    if (strstr(entry, "/anime/stream")) buff[j++] = entry;
+    else string_pop();
+  }
+
+  assert(*buff && "Nicht gefunden");
+
+  for (int i = 0; buff[i] && i < MAX_SEARCH_RESULTS; ++i)
+  {
+    buff[i] = string_jump_over(buff[i], key);
+    buff[i] = string_slice("%.*s", buff[i], "\"", .trim = true);
+  }
+}
+
+char *aniworld_search(const char *show)
+{
+  HttpConnect  con = {0};
+  HttpResponse res = {0};
+  char *json = NULL;
+
+  res = request(&con,
+                "POST", "aniworld.to", "/ajax/search",
+                  .content      = string_format("keyword=%s", show),
+                  .content_type = "application/x-www-form-urlencoded");
+
+  json = string_remove(res.items, (const char *[8]){"\\", "<em>", "</em>", "u00bb", "u00ba", "u00ab", "u2019", NULL});
+
+  return json;
 }

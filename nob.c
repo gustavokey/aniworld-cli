@@ -6,7 +6,7 @@ int main(void)
   int rc = 0;
   rc = cbuild("-g", "aniworld.c", "-o", "aniworld", "-lssl", "-lcrypto");
   if (rc) return rc;
-  cbuild("-g", "aniworld-cli.c", "-o", "aniworld-cli", "-lssl", "-lcrypto");
+  rc = cbuild("-g", "aniworld-cli.c", "-o", "aniworld-cli", "-lssl", "-lcrypto");
   if (rc) return rc;
 
   BETTER_CLOG("main", "Compiled succesfully\n");

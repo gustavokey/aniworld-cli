@@ -110,7 +110,7 @@ int main(void)
   if (rc) return rc;
 
   http_close(con, .received = &res);
-  string_free();
+  string_release();
 
   return 0;
 }
