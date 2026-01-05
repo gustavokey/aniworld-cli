@@ -35,7 +35,7 @@ HttpResponse _request(HttpConnect *con, const char *type, const char *host, cons
 char *deobfuscate(unsigned char *encoded);
 char *json_entry(char *json, int n);
 void json_get_values(char **buff, char *json, const char *key);
-char *aniworld_search(const char *show);
+char *aniworld_search(HttpConnect *con, const char *show);
 
 int main(int argc, char **argv)
 {
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 
     if (!watch_url)
     {
-      json = aniworld_search(argv[2]);
+      json = aniworld_search(&con, argv[2]);
       assert(json && "Nicht gefunden");
 
       json_get_values(titles, json, "\"title\":\"");
@@ -161,7 +161,7 @@ int main(int argc, char **argv)
   }
   else if (strcmp(argv[1], "search") == 0)
   {
-    json = aniworld_search(argv[2]);
+    json = aniworld_search(&con, argv[2]);
 
     for (int i = 1; (entry = json_entry(json, i)); ++i)
       printf("%s\n", entry);
@@ -257,13 +257,12 @@ void json_get_values(char **buff, char *json, const char *key)
   }
 }
 
-char *aniworld_search(const char *show)
+char *aniworld_search(HttpConnect *con, const char *show)
 {
-  HttpConnect  con = {0};
   HttpResponse res = {0};
   char *json = NULL;
 
-  res = request(&con,
+  res = request(con,
                 "POST", "aniworld.to", "/ajax/search",
                   .content      = string_format("keyword=%s", show),
                   .content_type = "application/x-www-form-urlencoded");
