@@ -86,13 +86,14 @@ int main(int argc, char **argv)
       json_get_values(links,  json, "\"link\":\"");
 
       printf("Select your choice\n");
+      printf("> [0] Quit\n");
       for (int i = 0; titles[i] && i < MAX_SEARCH_RESULTS; ++i)
         printf("> [%d] %s\n", i + 1, titles[i]);
 
       option = getchar();
-      option -= 48;
+      option -= '0';
 
-      if (option > 7 && option < 1)
+      if (option > 7 || option < 1)
         goto _defer;
 
       if (strstr(links[option - 1], "staffel-0")) is_movie = true;
